@@ -663,7 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (navigator.share) {
             navigator.share({
-                title: `${t['app-title']} - ${personName}`,
+                title: `${t['app-title']} - ${name}`,
                 text: message
             }).catch((error) => console.log('Error sharing', error));
         } else {
