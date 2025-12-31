@@ -1,3 +1,5 @@
+// Standalone Vegetable Billing App
+
 document.addEventListener('DOMContentLoaded', () => {
     // 1. DOM Elements
     const billingForm = document.getElementById('billing-form');
@@ -16,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLang = localStorage.getItem('veg_lang') || 'en';
     let personFilters = {}; // { "Satya": "2024-12-31" }
     let isLocked = localStorage.getItem('veg_lock_enabled') === 'true';
+    let currentUser = null;
 
     // 3. Translation Data
     const translations = {
@@ -62,13 +65,12 @@ document.addEventListener('DOMContentLoaded', () => {
             "restore-instruction": "Choose your 'veggie_bill_backup' file.",
             "undo-text": "Last deletion moved to Recycle Bin.",
             "recycle-title": "Recycle Bin (Last 10 Items)",
-            "btn-undo": "Undo",
-            "btn-empty-trash": "Empty Bin",
-            "trash-empty": "Recycle Bin is empty.",
+            "btn-undo": "Undo Delete",
+            "btn-empty-trash": "Empty Recycle Bin",
             "btn-payment": "Record Payment",
+            "btn-whatsapp": "Share Bill",
             "prompt-payment": "Enter amount paid by",
             "payment-type": "Payment/Deduction",
-            "btn-whatsapp": "WhatsApp Bill",
             "msg-header": "*Vegetable Bill - Satyanarayana Sadanala*",
             "msg-date": "Date",
             "msg-today-items": "*Today's Items:*",
@@ -83,7 +85,12 @@ document.addEventListener('DOMContentLoaded', () => {
             "btn-unlock": "Fingerprint / Face ID",
             "btn-lock-setup": "Security Lock", // SHORTER FOR NAV
             "lock-enabled-msg": "Fingerprint lock enabled!",
-            "lock-disabled-msg": "Fingerprint lock disabled."
+            "lock-disabled-msg": "Fingerprint lock disabled.",
+            "btn-login": "Sign in with Google",
+            "btn-sync": "Sync Now",
+            "login-success": "Logged in successfully!",
+            "sync-success": "Data synced to cloud!",
+            "sync-error": "Sync failed. Check connection."
         },
         te: {
             "app-title": "కూరగాయల బిల్లింగ్",
@@ -128,13 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
             "restore-instruction": "మీ 'veggie_bill_backup' ఫైల్‌ను ఎంచుకోండి.",
             "undo-text": "తొలగించిన డేటా రీసైకిల్ బిన్‌కు మార్చబడింది.",
             "recycle-title": "రీసైకిల్ బిన్ (చివరి 10 అంశాలు)",
-            "btn-undo": "వెనక్కి తీసుకో",
-            "btn-empty-trash": "బిన్ ఖాళీ చేయి",
-            "trash-empty": "రీసైకిల్ బిన్ ఖాళీగా ఉంది.",
+            "btn-undo": "మరల వెనకకు",
+            "btn-empty-trash": "రీసైకిల్ బిన్ ఖాళీ చేయండి",
             "btn-payment": "చెల్లింపు నమోదు",
             "prompt-payment": "చెల్లించిన మొత్తాన్ని నమోదు చేయండి - ",
             "payment-type": "చెల్లింపు/తగ్గింపు",
-            "btn-whatsapp": "వాట్సాప్ బిల్లు",
+            "btn-whatsapp": "బిల్లు పంపండి",
             "msg-header": "*కూరగాయల బిల్లు - సత్యనారాయణ సదనాల*",
             "msg-date": "తేదీ",
             "msg-today-items": "*ఈ రోజు వస్తువులు:*",
@@ -149,7 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
             "btn-unlock": "ఫింగర్ ప్రింట్ / ఫేస్ ఐడి",
             "btn-lock-setup": "సెక్యూరిటీ లాక్",
             "lock-enabled-msg": "ఫింగర్ ప్రింట్ లాక్ ప్రారంభించబడింది!",
-            "lock-disabled-msg": "ఫింగర్ ప్రింట్ లాక్ నిలిపివేయబడింది."
+            "lock-disabled-msg": "ఫింగర్ ప్రింట్ లాక్ నిలిపివేయబడింది.",
+            "btn-login": "గూగుల్ తో సైన్ ఇన్ చేయండి",
+            "btn-sync": "అప్‌లోడ్ చేయండి",
+            "login-success": "లాగిన్ విజయవంతమైంది!",
+            "sync-success": "డేటా క్లౌడ్‌కు అప్‌లోడ్ చేయబడింది!",
+            "sync-error": "అప్‌లోడ్ విఫలమైంది."
         }
     };
 
@@ -236,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
                             <button class="btn btn-outline" onclick="shareToWhatsApp('${personName}')" 
                                 style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: #25d366; color: #25d366;">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-11.7 8.38 8.38 0 0 1 3.8.9L21 3z"></path></svg>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
                                 ${t['btn-whatsapp']}
                             </button>
                             <button class="btn btn-outline" onclick="clearPerson('${personName}')" 
@@ -650,13 +661,14 @@ document.addEventListener('DOMContentLoaded', () => {
         message += `${t['msg-total-balance']} *₹ ${grandTotalBalance.toFixed(2)}*\n`;
         message += `\nThank you!`;
 
-        const lastPhone = localStorage.getItem(`phone_${name}`) || '';
-        const phoneNumber = prompt(`${t['prompt-phone']} ${name}`, lastPhone);
-
-        if (phoneNumber) {
-            localStorage.setItem(`phone_${name}`, phoneNumber);
+        if (navigator.share) {
+            navigator.share({
+                title: `${t['app-title']} - ${personName}`,
+                text: message
+            }).catch((error) => console.log('Error sharing', error));
+        } else {
             const encodedMsg = encodeURIComponent(message);
-            window.open(`https://wa.me/${phoneNumber}?text=${encodedMsg}`, '_blank');
+            window.open(`https://wa.me/?text=${encodedMsg}`, '_blank');
         }
     };
 
@@ -731,15 +743,9 @@ document.addEventListener('DOMContentLoaded', () => {
         unlockBtn.addEventListener('click', verifyBiometrics);
     }
 
-    // Auto-lock when tab is hidden (for security)
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden' && isLocked) {
-            // Small delay to prevent accidental locking on quick app switches
-            setTimeout(() => { if (isLocked) lockApp(); }, 1000);
-        }
-    });
+    // Firebase Logic Removed for Local Compatibility
 
-    // 9. Initialize Page
+    // 10. Initialize Page
     if (dateInput) dateInput.value = today;
     applyTranslations();
     renderEntries();

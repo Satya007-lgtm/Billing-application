@@ -1,4 +1,4 @@
-const CACHE_NAME = 'veggie-bill-v1';
+const CACHE_NAME = 'veggie-bill-v2';
 const ASSETS = [
     './',
     './index.html',
