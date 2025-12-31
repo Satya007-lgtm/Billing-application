@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "th-action": "Action",
             "label-balance": "Balance for",
             "no-entries": "No entries found. Start by adding a new entry.",
-            "footer-text": "© 2025 Satyanarayana Sadanala. Built for High-Impact Analytics.",
+            "footer-text": "© 2025 SVR Dmr. Built for High-Impact Analytics.",
             "confirm-delete": "Are you sure you want to delete this entry?",
             "confirm-clear": "Are you sure you want to delete all entries for",
             "voice-listening": "Listening...",
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "btn-whatsapp": "Share Bill",
             "prompt-payment": "Enter amount paid by",
             "payment-type": "Payment/Deduction",
-            "msg-header": "*Vegetable Bill - Satyanarayana Sadanala*",
+            "msg-header": "*Vegetable Bill - SVR Dmr*",
             "msg-date": "Date",
             "msg-today-items": "*Today's Items:*",
             "msg-payments": "*Payments/Deductions Today:*",
@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "th-action": "చర్య",
             "label-balance": "బ్యాలెన్స్",
             "no-entries": "ఎంట్రీలు ఏవీ లేవు. కొత్త ఎంట్రీని జోడించడం ద్వారా ప్రారంభించండి.",
-            "footer-text": "© 2025 సత్యనారాయణ సదనాల. హై-ఇంపాక్ట్ అనలిటిక్స్ కోసం నిర్మించబడింది.",
+            "footer-text": "© 2025 SVR Dmr. హై-ఇంపాక్ట్ అనలిటిక్స్ కోసం నిర్మించబడింది.",
             "confirm-delete": "మీరు ఖచ్చితంగా ఈ ఎంట్రీని తొలగించాలనుకుంటున్నారా?",
             "confirm-clear": "మీరు ఖచ్చితంగా అన్ని ఎంట్రీలను తొలగించాలనుకుంటున్నారా",
             "voice-listening": "వింటున్నాను...",
@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "prompt-payment": "చెల్లించిన మొత్తాన్ని నమోదు చేయండి - ",
             "payment-type": "చెల్లింపు/తగ్గింపు",
             "btn-whatsapp": "బిల్లు పంపండి",
-            "msg-header": "*కూరగాయల బిల్లు - సత్యనారాయణ సదనాల*",
+            "msg-header": "*కూరగాయల బిల్లు - SVR Dmr*",
             "msg-date": "తేదీ",
             "msg-today-items": "*ఈ రోజు వస్తువులు:*",
             "msg-payments": "*ఈ రోజు చెల్లింపులు:*",
@@ -637,7 +637,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let message = `${t['msg-header']}\n`;
-        message += `${t['msg-date']}: ${new Date(targetDate).toLocaleDateString(currentLang === 'te' ? 'te-IN' : 'en-IN')}\n\n`;
+        message += `${t['msg-date']}: ${new Date(targetDate).toLocaleDateString(currentLang === 'te' ? 'te-IN' : 'en-IN')}\n`;
+        message += `${t['label-name']}: ${name}\n\n`;
 
         const items = filteredEntries.filter(e => !e.isPayment);
         const payments = filteredEntries.filter(e => e.isPayment);
