@@ -10,15 +10,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const langSelect = document.getElementById('lang-select');
     const importInput = document.getElementById('import-input');
 
-    // 2. State Management
+    // 2. State Management with Reliability Check
     const today = new Date().toISOString().split('T')[0];
-    let entries = JSON.parse(localStorage.getItem('veg_entries')) || [];
-    let trash = JSON.parse(localStorage.getItem('veg_trash')) || []; // RECYCLE BIN
+    let entries = [];
+    let trash = [];
     let editingId = null;
     let currentLang = localStorage.getItem('veg_lang') || 'en';
-    let personFilters = {}; // { "Satya": "2024-12-31" }
+    let personFilters = {};
     let isLocked = localStorage.getItem('veg_lock_enabled') === 'true';
-    let currentUser = null;
+    let lastBackup = localStorage.getItem('veg_last_backup') || Date.now();
+
+    try {
+        entries = JSON.parse(localStorage.getItem('veg_entries')) || [];
+        trash = JSON.parse(localStorage.getItem('veg_trash')) || [];
+
+        // Validate main entries structure
+        if (!Array.isArray(entries)) entries = [];
+        entries = entries.filter(e => e && e.id && e.name); // Basic sanity filter
+    } catch (e) {
+        console.error("Data corruption detected in localStorage", e);
+        alert("Warning: Billing data was partially corrupted. Attempting to recover...");
+        entries = [];
+        trash = [];
+    }
 
     // 3. Translation Data
     const translations = {
@@ -90,7 +104,14 @@ document.addEventListener('DOMContentLoaded', () => {
             "btn-sync": "Sync Now",
             "login-success": "Logged in successfully!",
             "sync-success": "Data synced to cloud!",
-            "sync-error": "Sync failed. Check connection."
+            "sync-error": "Sync failed. Check connection.",
+            "dash-sales-today": "Sales Today",
+            "dash-pending": "Pending Due",
+            "dash-customers": "Active Customers",
+            "voice-start": "Speak now...",
+            "voice-no-match": "Couldn't understand. Please try again.",
+            "voice-blocked": "Microphone access blocked.",
+            "btn-print": "Print Bill"
         },
         te: {
             "app-title": "కూరగాయల బిల్లింగ్",
@@ -160,7 +181,14 @@ document.addEventListener('DOMContentLoaded', () => {
             "btn-sync": "అప్‌లోడ్ చేయండి",
             "login-success": "లాగిన్ విజయవంతమైంది!",
             "sync-success": "డేటా క్లౌడ్‌కు అప్‌లోడ్ చేయబడింది!",
-            "sync-error": "అప్‌లోడ్ విఫలమైంది."
+            "sync-error": "అప్‌లోడ్ విఫలమైంది.",
+            "dash-sales-today": "ఈరోజు అమ్మకాలు",
+            "dash-pending": "బకాయి మొత్తం",
+            "dash-customers": "కస్టమర్లు",
+            "voice-start": "మాట్లాడండి...",
+            "voice-no-match": "అర్థం కాలేదు. మళ్ళీ ప్రయత్నించండి.",
+            "voice-blocked": "మైక్రోఫోన్ అనుమతి నిరాకరించబడింది.",
+            "btn-print": "ప్రింట్ బిల్లు"
         }
     };
 
@@ -192,11 +220,89 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Saves current state to localStorage and triggers re-rendering of all UI components.
+     */
     function saveAndRender() {
-        localStorage.setItem('veg_entries', JSON.stringify(entries));
-        localStorage.setItem('veg_trash', JSON.stringify(trash));
-        renderEntries();
-        updateTrashBadge();
+        try {
+            localStorage.setItem('veg_entries', JSON.stringify(entries));
+            localStorage.setItem('veg_trash', JSON.stringify(trash));
+            renderDashboard();
+            renderEntries();
+            updateTrashBadge();
+            checkBackupReminder();
+        } catch (e) {
+            console.error("Save failed", e);
+            if (e.name === 'QuotaExceededError') {
+                alert("Storage full! Please backup and clear some old entries.");
+            }
+        }
+    }
+
+    /**
+     * Checks if a backup reminder is needed (every 7 days).
+     */
+    function checkBackupReminder() {
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        if (Date.now() - lastBackup > sevenDays) {
+            const recoverBtn = document.querySelector('[data-i18n="btn-backup"]');
+            if (recoverBtn) {
+                recoverBtn.style.animation = "pulse 2s infinite";
+                recoverBtn.title = "Reminder: Please backup your data!";
+            }
+        }
+    }
+
+    /**
+     * Renders the top dashboard with sales analytics.
+     * UPDATED: Now shows current date in the label.
+     */
+    function renderDashboard() {
+        const dashContainer = document.getElementById('dashboard-stats');
+        if (!dashContainer) return;
+
+        const t = translations[currentLang];
+        const todayObj = new Date();
+        const todayStr = todayObj.toISOString().split('T')[0];
+        const displayDate = todayObj.toLocaleDateString(currentLang === 'te' ? 'te-IN' : 'en-IN', { day: '2-digit', month: 'short' });
+
+        const salesToday = entries
+            .filter(e => (e.date || new Date(e.id).toISOString().split('T')[0]) === todayStr && !e.isPayment)
+            .reduce((sum, e) => sum + e.total, 0);
+
+        const pendingDue = entries.reduce((sum, e) => sum + e.grandTotal, 0);
+
+        const activeCustomers = new Set(entries.map(e => e.name)).size;
+
+        dashContainer.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-label">${t['dash-sales-today']} (${displayDate})</span>
+                    <span class="stat-value">₹ ${salesToday.toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-label">${t['dash-pending']}</span>
+                    <span class="stat-value">₹ ${pendingDue.toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-label">${t['dash-customers']}</span>
+                    <span class="stat-value">${activeCustomers}</span>
+                </div>
+            </div>
+        `;
     }
 
     function updateTrashBadge() {
@@ -204,6 +310,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (recoverBtn) {
             recoverBtn.innerHTML = `${translations[currentLang]['btn-recover']} <span style="background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; margin-left: 5px;">${trash.length}</span>`;
         }
+        updateSuggestions();
+    }
+
+    function updateSuggestions() {
+        const nameDatalist = document.getElementById('name-suggestions');
+        const vegDatalist = document.getElementById('veg-suggestions');
+        if (!nameDatalist || !vegDatalist) return;
+
+        const uniqueNames = [...new Set(entries.map(e => e.name))];
+        const uniqueVegs = [...new Set(entries.filter(e => !e.isPayment).map(e => e.vegetable))];
+
+        nameDatalist.innerHTML = uniqueNames.map(name => `<option value="${name}">`).join('');
+        vegDatalist.innerHTML = uniqueVegs.map(veg => `<option value="${veg}">`).join('');
     }
 
     function renderEntries() {
@@ -245,6 +364,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <h3>${t['table-history']} <span class="accent">${personName}</span></h3>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button class="btn btn-outline" onclick="printBill('${personName}')" 
+                                style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--accent-primary); color: var(--accent-primary);">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                                ${t['btn-print']}
+                            </button>
                             <button class="btn btn-outline" onclick="shareToWhatsApp('${personName}')" 
                                 style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: #25d366; color: #25d366;">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
@@ -396,33 +520,64 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(translations[currentLang]['voice-error']);
             return;
         }
+
         const recognition = new SpeechRecognition();
         recognition.lang = currentLang === 'te' ? 'te-IN' : 'en-IN';
-        recognition.interimResults = false;
+        recognition.interimResults = true; // FEATURE: Responsive UI
         recognition.maxAlternatives = 1;
 
         const inputField = document.getElementById(targetId);
         const btn = inputField.nextElementSibling;
+        const originalPlaceholder = inputField.placeholder;
+
         btn.classList.add('listening');
+        inputField.placeholder = translations[currentLang]['voice-start'];
 
         recognition.start();
 
         recognition.onresult = (event) => {
-            inputField.value = event.results[0][0].transcript;
+            const transcript = Array.from(event.results)
+                .map(result => result[0])
+                .map(result => result.transcript)
+                .join('');
+
+            inputField.value = transcript;
+
+            if (event.results[0].isFinal) {
+                recognition.stop();
+            }
         };
 
         recognition.onspeechend = () => {
             recognition.stop();
-            btn.classList.remove('listening');
         };
 
-        recognition.onerror = () => {
+        recognition.onend = () => {
             btn.classList.remove('listening');
+            inputField.placeholder = originalPlaceholder;
+        };
+
+        recognition.onerror = (event) => {
+            btn.classList.remove('listening');
+            inputField.placeholder = originalPlaceholder;
+
+            if (event.error === 'no-speech') {
+                console.warn("No speech detected");
+            } else if (event.error === 'not-allowed') {
+                alert(translations[currentLang]['voice-blocked']);
+            } else {
+                alert(translations[currentLang]['voice-no-match']);
+            }
         };
     };
 
     window.exportData = () => {
-        const data = { entries, lang: currentLang, exportDate: new Date().toISOString() };
+        const data = {
+            entries,
+            lang: currentLang,
+            exportDate: new Date().toISOString(),
+            version: "1.2"
+        };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -432,6 +587,12 @@ document.addEventListener('DOMContentLoaded', () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+
+        lastBackup = Date.now();
+        localStorage.setItem('veg_last_backup', lastBackup);
+        const backupBtn = document.querySelector('[data-i18n="btn-backup"]');
+        if (backupBtn) backupBtn.style.animation = "none";
+
         alert(translations[currentLang]['backup-success']);
     };
 
@@ -624,16 +785,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.shareToWhatsApp = (name) => {
         const t = translations[currentLang];
-        // Use individual person filter if active, otherwise use today
         const targetDate = personFilters[name] || new Date().toISOString().split('T')[0];
+        const message = generateBillText(name, targetDate);
 
+        if (!message) return;
+
+        if (navigator.share) {
+            navigator.share({
+                title: `${t['app-title']} - ${name}`,
+                text: message
+            }).catch((error) => console.log('Error sharing', error));
+        } else {
+            const encodedMsg = encodeURIComponent(message);
+            window.open(`https://wa.me/?text=${encodedMsg}`, '_blank');
+        }
+    };
+
+    function generateBillText(name, targetDate) {
+        const t = translations[currentLang];
         const personEntries = entries.filter(e => e.name === name);
         const filteredEntries = personEntries.filter(e => (e.date || new Date(e.id).toISOString().split('T')[0]) === targetDate);
-        const grandTotalBalance = personEntries.reduce((sum, e) => sum + e.grandTotal, 0);
+        const currentTotalBalance = personEntries.reduce((sum, e) => sum + e.grandTotal, 0);
 
         if (filteredEntries.length === 0) {
             alert(currentLang === 'te' ? 'ఈ తేదీకి ఎంట్రీలు ఏవీ లేవు.' : 'No entries found for this date.');
-            return;
+            return null;
         }
 
         let message = `${t['msg-header']}\n`;
@@ -659,18 +835,87 @@ document.addEventListener('DOMContentLoaded', () => {
             message += '\n';
         }
 
-        message += `${t['msg-total-balance']} *₹ ${grandTotalBalance.toFixed(2)}*\n`;
-        message += `\nThank you!`;
+        message += `${t['msg-total-balance']} *₹ ${currentTotalBalance.toFixed(2)}*\n`;
+        message += `\nThank you!\n- SVR Dmr`;
+        return message;
+    }
 
-        if (navigator.share) {
-            navigator.share({
-                title: `${t['app-title']} - ${name}`,
-                text: message
-            }).catch((error) => console.log('Error sharing', error));
-        } else {
-            const encodedMsg = encodeURIComponent(message);
-            window.open(`https://wa.me/?text=${encodedMsg}`, '_blank');
+    window.printBill = (name) => {
+        const t = translations[currentLang];
+        const targetDate = personFilters[name] || new Date().toISOString().split('T')[0];
+        const personEntries = entries.filter(e => e.name === name);
+        const filteredEntries = personEntries.filter(e => (e.date || new Date(e.id).toISOString().split('T')[0]) === targetDate);
+        const totalBalance = personEntries.reduce((sum, e) => sum + e.grandTotal, 0);
+
+        if (filteredEntries.length === 0) {
+            alert(currentLang === 'te' ? 'ఈ తేదీకి ఎంట్రీలు ఏవీ లేవు.' : 'No entries found for this date.');
+            return;
         }
+
+        const printWindow = window.open('', '_blank');
+        const dateStr = new Date(targetDate).toLocaleDateString(currentLang === 'te' ? 'te-IN' : 'en-IN');
+
+        let itemsHTML = '';
+        filteredEntries.forEach(e => {
+            const label = e.isPayment ? t['payment-type'] : e.vegetable;
+            const amount = e.isPayment ? `- ₹ ${Math.abs(e.grandTotal).toFixed(2)}` : `₹ ${e.total.toFixed(2)}`;
+            itemsHTML += `
+                <div style="display:flex; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid #eee;">
+                    <span>${label}${!e.isPayment ? ` (${e.price} x ${e.kgs}kg)` : ''}</span>
+                    <span style="font-weight:bold;">${amount}</span>
+                </div>`;
+        });
+
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Bill - ${name}</title>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; padding: 2rem; color: #1e293b; }
+                        .bill-card { max-width: 400px; margin: auto; border: 1px solid #e2e8f0; padding: 2rem; border-radius: 12px; }
+                        .header { text-align: center; margin-bottom: 2rem; border-bottom: 2px solid #0ea5e9; padding-bottom: 1rem; }
+                        .footer { margin-top: 2rem; border-top: 2px solid #0ea5e9; padding-top: 1rem; text-align: center; font-size: 0.8rem; color: #64748b; }
+                        .total-section { margin-top: 1rem; background: #f8fafc; padding: 1rem; border-radius: 8px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="bill-card">
+                        <div class="header">
+                            <h2 style="margin:0; color:#0ea5e9;">${t['app-title']}</h2>
+                            <p style="margin:0.5rem 0 0; font-size:0.9rem;">SVR Dmr</p>
+                        </div>
+                        <div style="margin-bottom:1.5rem;">
+                            <div style="display:flex; justify-content:space-between;">
+                                <span>${t['label-name']}:</span>
+                                <strong>${name}</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <span>${t['msg-date']}:</span>
+                                <span>${dateStr}</span>
+                            </div>
+                        </div>
+                        <div style="margin-bottom:1rem; font-weight:bold; font-size:0.8rem; text-transform:uppercase; color:#64748b;">Items & Payments</div>
+                        ${itemsHTML}
+                        <div class="total-section">
+                            <div style="display:flex; justify-content:space-between; font-size:1.2rem;">
+                                <span>${t['th-grand']}:</span>
+                                <strong style="color:#0ea5e9;">₹ ${totalBalance.toFixed(2)}</strong>
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <p>Thank you for your business!</p>
+                            <p>© 2025 SVR Dmr</p>
+                        </div>
+                    </div>
+                </body>
+            </html>
+        `);
+
+        printWindow.document.close();
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 500);
     };
 
     // 8. Biometric Security Logic
@@ -749,6 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 10. Initialize Page
     if (dateInput) dateInput.value = today;
     applyTranslations();
+    renderDashboard();
     renderEntries();
     updateTrashBadge();
 
