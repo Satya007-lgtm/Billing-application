@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vegetable Billing System | Satyanarayana Sadanala</title>
+    <title>Vegetable Billing System | SVR Dmr</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0ea5e9">
@@ -85,6 +85,11 @@
             <p class="subtitle" data-i18n="header-sub">Efficient data entry for vegetable inventory and sales.</p>
         </header>
 
+        <!-- Dashboard Stats -->
+        <div id="dashboard-stats" class="stats-container fade-in">
+            <!-- Dynamic stats cards will be injected here -->
+        </div>
+
         <section class="billing-grid">
             <!-- Data Entry Form -->
             <div class="card form-card fade-in">
@@ -98,7 +103,8 @@
                         <label for="name" data-i18n="label-name">Customer Name</label>
                         <div class="input-with-icon">
                             <input type="text" id="name" placeholder="Enter name" required class="glass-input"
-                                data-i18n-placeholder="placeholder-name">
+                                data-i18n-placeholder="placeholder-name" list="name-suggestions">
+                            <datalist id="name-suggestions"></datalist>
                             <button type="button" class="voice-btn" onclick="startVoiceInput('name')"
                                 title="Voice Input">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -115,7 +121,8 @@
                         <label for="vegetable" data-i18n="label-veg">Vegetable</label>
                         <div class="input-with-icon">
                             <input type="text" id="vegetable" placeholder="e.g. Tomato, Onion" required
-                                class="glass-input" data-i18n-placeholder="placeholder-veg">
+                                class="glass-input" data-i18n-placeholder="placeholder-veg" list="veg-suggestions">
+                            <datalist id="veg-suggestions"></datalist>
                             <button type="button" class="voice-btn" onclick="startVoiceInput('vegetable')"
                                 title="Voice Input">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -168,7 +175,7 @@
             </svg>
             <span data-i18n="security-verified">Secure & Virus-Free Verified</span>
         </div>
-        <p data-i18n="footer-text">© 2025 Satyanarayana Sadanala. Built for High-Impact Analytics.</p>
+        <p data-i18n="footer-text">© 2025 SVR Dmr. Built for High-Impact Analytics.</p>
     </footer>
 
     <script src="app.js"></script>
